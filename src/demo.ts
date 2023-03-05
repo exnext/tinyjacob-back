@@ -1,5 +1,6 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
+// import { MessageDto } from './message.dto';
 
 @Controller('demo')
 export class DemoController {
@@ -11,7 +12,8 @@ export class DemoController {
   }
 
   @Post()
-  upload(param: any) {
-    console.log(param);
+  upload(@Body() message: any) {
+    console.log(message);
+    return message;
   }
 }
