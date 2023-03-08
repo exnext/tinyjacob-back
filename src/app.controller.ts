@@ -32,15 +32,25 @@ export class AppController {
         timestamps: false
       });
 
-      const hashes = await Hash.findAll();
-      console.log(JSON.stringify(hashes));
+      const link: any = par.link.split('//');
+      let [, ...rest] = link[link.length - 1].split('/');
+      rest = rest.join('/').replace('?', '')
+      const numHashes = await Hash.count({
+        where: { 'hash': rest }
+      });
+      if (numHashes === 0) {
+        await Hash.create({
+          'link': par.link, 
+          'hash': rest
+        });
+      } else {
+        rest += ' | rekord istniał już w bazie'
+      }
 
-      let link: any = par.link.split('//');
-      let [, ...res] = link[link.length - 1].split('/');
-      return 'ok.pl?hash='+res.join('/').replace('?', '');
+      return 'tiny-jacob.pl?hash=' + rest;
     } catch (error) {
       console.log(error);
-      return 'Errror';
+      return 'Error: connection with database couldn\'t be established';
     }
   }
 }
