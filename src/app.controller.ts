@@ -1,56 +1,81 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller, Post, Body } from '@nestjs/common';
 import { Sequelize, DataTypes } from 'sequelize';
+import { createHash } from 'crypto'
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: 'src/db/tiny-jacob.sqlite'
+  });
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
-  }
+  Hash = this.sequelize.define('Hash', {
+    link: {type: DataTypes.TEXT},
+    hash: {type: DataTypes.TEXT}
+  }, {
+    freezeTableName: true,
+    timestamps: false
+  });
 
-  @Post(':link')
-  async upload(@Body() par): Promise<string> {
+  @Post('/link/:link')
+  async uploadHash(@Body() par): Promise<string> {
     if (par.link == '')
-      return 'Puste dane';
+      return 'false';
 
-    const sequelize = new Sequelize({
-      dialect: 'sqlite',
-      storage: 'src/db/tiny-jacob.sqlite'
-    });
     try {
-      await sequelize.authenticate();
+      await this.sequelize.authenticate();
       console.log('Connection has been established successfully.');
 
-      const Hash = sequelize.define('Hash', {
-        link: {type: DataTypes.TEXT},
-        hash: {type: DataTypes.TEXT}
-      }, {
-        freezeTableName: true,
-        timestamps: false
+      const hashes = await this.Hash.findAndCountAll({
+        where: { link: par.link }
       });
+      if (hashes.count !== 0) // jeśli link istniał już w bazie
+        return hashes.rows[0].dataValues.hash;
 
-      const link: any = par.link.split('//');
-      let [, ...rest] = link[link.length - 1].split('/');
-      rest = rest.join('/').replace('?', '')
-      const numHashes = await Hash.count({
-        where: { 'hash': rest }
-      });
-      if (numHashes === 0) {
-        await Hash.create({
-          'link': par.link, 
-          'hash': rest
+      let link = par.link;
+      
+      while (true) {
+        const hash = createHash('md5');
+        hash.update(link);
+        const hashedLink = hash.digest('hex').substring(0, 8);
+
+        const numHash = await this.Hash.count({
+          where: { hash: hashedLink }
         });
-      } else {
-        rest += ' | rekord istniał już w bazie'
-      }
+        if(numHash !== 0) // jeśli link istnieje i mimo to hash jest w bazie
+          link += Math.floor(Math.random() * 1000);
+        else {
+          await this.Hash.create({
+            link: par.link, 
+            hash: hashedLink
+          });
 
-      return 'tiny-jacob.pl?hash=' + rest;
+          return hashedLink;
+        }
+      }
     } catch (error) {
       console.log(error);
-      return 'Error: connection with database couldn\'t be established';
+      return 'false';
+    }
+  }
+
+  @Post('/hash/:hash')
+  async uploadLink(@Body() par): Promise<string> {
+    try {
+      await this.sequelize.authenticate();
+      console.log('Connection has been established successfully.');
+
+      const links = await this.Hash.findAndCountAll({
+        where: { hash: par.hash }
+      });
+      if (links.count === 0) { // jeśli podany hash nie istnieje jeszcze w bazie
+        return 'false';
+      }
+
+      return links.rows[0].dataValues.link;
+    } catch (error) {
+      console.log(error);
+      return 'false';
     }
   }
 }
