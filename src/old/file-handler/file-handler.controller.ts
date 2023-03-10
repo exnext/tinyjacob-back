@@ -1,10 +1,10 @@
 import { Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AppService } from '../app.service';
+import { OldService } from '../old.service';
 
 @Controller('file-handler')
-export class FileHandlerController {
-    constructor(private readonly appService: AppService) {}
+export class DemoController {
+  constructor(private readonly appService: OldService) {}
 
     @Get()
     getGreeting() {
